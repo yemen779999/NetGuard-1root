@@ -1140,7 +1140,12 @@ fun NetworkRadarScreen(viewModel: NetGuardViewModel) {
     val subnet by viewModel.subnet.collectAsStateWithLifecycle()
     val selectedStrategy by viewModel.selectedScanStrategy.collectAsStateWithLifecycle()
     val aiState by viewModel.aiAnalysisState.collectAsStateWithLifecycle()
+    val isLiveMonitoring by viewModel.isLiveMonitoring.collectAsStateWithLifecycle()
+    val monitorInterval by viewModel.monitorIntervalSeconds.collectAsStateWithLifecycle()
+    val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
+
+    var selectedDeviceForDetails by remember { mutableStateOf<NetworkDevice?>(null) }
 
     LazyColumn(
         modifier = Modifier
@@ -1185,6 +1190,57 @@ fun NetworkRadarScreen(viewModel: NetGuardViewModel) {
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))
+
+                    // Live Monitoring Row
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = CyberSurfaceVariant),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = if (isLiveMonitoring) Icons.Default.Sensors else Icons.Default.SensorsOff,
+                                    contentDescription = null,
+                                    tint = if (isLiveMonitoring) CyberGreen else CyberTextSecondary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        "المراقبة الحية المستمرة (${monitorInterval} ثوانٍ)",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = CyberTextPrimary
+                                    )
+                                    Text(
+                                        if (isLiveMonitoring) "المراقبة نشطة - فحص دوري تلقائي" else "المراقبة متوقفة",
+                                        fontSize = 10.sp,
+                                        color = if (isLiveMonitoring) CyberGreen else CyberTextSecondary
+                                    )
+                                }
+                            }
+
+                            Switch(
+                                checked = isLiveMonitoring,
+                                onCheckedChange = { viewModel.toggleLiveMonitoring() },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = CyberDarkBg,
+                                    checkedTrackColor = CyberGreen,
+                                    uncheckedThumbColor = CyberTextSecondary,
+                                    uncheckedTrackColor = CyberSurface
+                                )
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Text("استراتيجية فحص الشبكة (Scan Strategy):", fontSize = 11.sp, color = CyberTextSecondary)
                     Spacer(modifier = Modifier.height(6.dp))
@@ -1332,7 +1388,7 @@ fun NetworkRadarScreen(viewModel: NetGuardViewModel) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("الأجهزة المكتشفة بالشبكة (${devices.size}):", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = CyberGreen)
-                    Text("تنسيق NetCut ⚡", fontSize = 10.sp, color = CyberTextSecondary)
+                    Text("تنسيق NetCut & OUI ⚡", fontSize = 10.sp, color = CyberTextSecondary)
                 }
             }
 
@@ -1343,7 +1399,10 @@ fun NetworkRadarScreen(viewModel: NetGuardViewModel) {
                     colors = CardDefaults.cardColors(containerColor = if (isBlocked) CyberRed.copy(alpha = 0.08f) else CyberSurface),
                     border = BorderStroke(1.dp, if (isBlocked) CyberRed.copy(alpha = 0.6f) else CyberBorder),
                     shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth().testTag("scanned_device_${device.ip}")
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { selectedDeviceForDetails = device }
+                        .testTag("scanned_device_${device.ip}")
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Row(
@@ -1358,6 +1417,7 @@ fun NetworkRadarScreen(viewModel: NetGuardViewModel) {
                                         DeviceType.LAPTOP -> Icons.Default.Laptop
                                         DeviceType.TV -> Icons.Default.Tv
                                         DeviceType.SMART_HOME -> Icons.Default.SmartToy
+                                        DeviceType.VIRTUAL_MACHINE -> Icons.Default.Computer
                                         else -> Icons.Default.Smartphone
                                     },
                                     contentDescription = null,
@@ -1366,9 +1426,20 @@ fun NetworkRadarScreen(viewModel: NetGuardViewModel) {
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Column {
-                                    Text(device.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = CyberTextPrimary)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(device.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = CyberTextPrimary)
+                                        if (device.vendor != "Unknown") {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Badge(containerColor = CyberGreen.copy(alpha = 0.15f)) {
+                                                Text(device.vendor, fontSize = 9.sp, color = CyberGreen, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp))
+                                            }
+                                        }
+                                    }
                                     Text("IP: ${device.ip}", fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = CyberTextPrimary)
-                                    Text("MAC: ${device.mac}", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = CyberTextSecondary)
+                                    Text("MAC: ${device.mac} • ${device.typeLabel}", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = CyberTextSecondary)
+                                    if (device.hostname != "Unknown") {
+                                        Text("Host: ${device.hostname}", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = CyberGreen.copy(alpha = 0.8f))
+                                    }
                                 }
                             }
 
@@ -1416,11 +1487,7 @@ fun NetworkRadarScreen(viewModel: NetGuardViewModel) {
                             }
 
                             OutlinedButton(
-                                onClick = {
-                                    viewModel.saveMacAddress(device.name, device.mac) { success, msg ->
-                                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                                    }
-                                },
+                                onClick = { selectedDeviceForDetails = device },
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = CyberGreen),
                                 border = BorderStroke(1.dp, CyberGreen.copy(alpha = 0.5f)),
                                 shape = RoundedCornerShape(8.dp),
@@ -1428,13 +1495,84 @@ fun NetworkRadarScreen(viewModel: NetGuardViewModel) {
                                     .weight(0.7f)
                                     .height(38.dp)
                             ) {
-                                Icon(Icons.Default.BookmarkBorder, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("حفظ 🔖", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("تفاصيل 🔍", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                 }
+            }
+        }
+    }
+
+    // DEVICE DETAILS DIALOG
+    selectedDeviceForDetails?.let { dev ->
+        AlertDialog(
+            onDismissRequest = { selectedDeviceForDetails = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.DeviceHub, contentDescription = null, tint = CyberGreen, modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("تفاصيل الجهاز المكتشف", color = CyberTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    DetailRow(label = "اسم الجهاز", value = dev.name)
+                    DetailRow(label = "عنوان IP", value = dev.ip, canCopy = true) {
+                        clipboardManager.setText(AnnotatedString(dev.ip))
+                        Toast.makeText(context, "تم نسخ عنوان IP", Toast.LENGTH_SHORT).show()
+                    }
+                    DetailRow(label = "عنوان MAC", value = dev.mac, canCopy = true) {
+                        clipboardManager.setText(AnnotatedString(dev.mac))
+                        Toast.makeText(context, "تم نسخ عنوان MAC", Toast.LENGTH_SHORT).show()
+                    }
+                    DetailRow(label = "الشركة المصنعة (Vendor)", value = dev.vendor)
+                    DetailRow(label = "نوع الجهاز", value = dev.typeLabel)
+                    DetailRow(label = "اسم المضيف (Hostname)", value = dev.hostname)
+                    DetailRow(label = "حالة الاتصال", value = if (dev.isBlocked) "مقطوع عبر NetCut 🛑" else "نشط ومتصل 🟢")
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.saveMacAddress(dev.name, dev.mac) { success, msg ->
+                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                        }
+                        selectedDeviceForDetails = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CyberGreen, contentColor = CyberDarkBg)
+                ) {
+                    Icon(Icons.Default.BookmarkBorder, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("حفظ بالمفضلة", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { selectedDeviceForDetails = null }) {
+                    Text("إغلاق", color = CyberTextSecondary)
+                }
+            },
+            containerColor = CyberSurface
+        )
+    }
+}
+
+@Composable
+private fun DetailRow(label: String, value: String, canCopy: Boolean = false, onCopy: (() -> Unit)? = null) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, fontSize = 11.sp, color = CyberTextSecondary)
+            Text(value, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = CyberTextPrimary, fontFamily = if (label.contains("IP") || label.contains("MAC")) FontFamily.Monospace else FontFamily.Default)
+        }
+        if (canCopy && onCopy != null) {
+            IconButton(onClick = onCopy, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = CyberGreen, modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -1649,6 +1787,46 @@ fun SettingsScreen(viewModel: NetGuardViewModel) {
                                     labelColor = CyberTextSecondary
                                 ),
                                 shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // 3D Effects & Glassmorphism Toggle
+                    val is3dEffects by viewModel.is3dEffectsEnabled.collectAsStateWithLifecycle()
+                    val animationLevel by viewModel.animationLevel.collectAsStateWithLifecycle()
+
+                    SettingsSwitchRow(
+                        title = "تأثيرات العمق 3D والزجاج (3D Glassmorphism)",
+                        subtitle = "تفعيل طبقات العمق البصري ثلاثي الأبعاد وتوهج النيون السيبراني",
+                        checked = is3dEffects,
+                        onCheckedChange = { viewModel.toggle3dEffects(it) }
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text("مستوى الحركة والأنيميشن (Animations):", fontSize = 11.sp, color = CyberTextSecondary)
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        AnimationLevel.values().forEach { level ->
+                            val selected = animationLevel == level
+                            FilterChip(
+                                selected = selected,
+                                onClick = { viewModel.setAnimationLevel(level) },
+                                label = { Text(level.displayName, fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = CyberGreen,
+                                    selectedLabelColor = CyberDarkBg,
+                                    containerColor = CyberSurfaceVariant,
+                                    labelColor = CyberTextSecondary
+                                ),
+                                shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.weight(1f)
                             )
                         }

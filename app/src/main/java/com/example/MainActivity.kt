@@ -75,7 +75,14 @@ class MainActivity : FragmentActivity() {
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
             }
-            MyApplicationTheme(darkTheme = useDarkTheme) {
+            val is3dEffects by viewModel.is3dEffectsEnabled.collectAsStateWithLifecycle()
+            val animationLevel by viewModel.animationLevel.collectAsStateWithLifecycle()
+
+            MyApplicationTheme(
+                darkTheme = useDarkTheme,
+                is3dEffectsEnabled = is3dEffects,
+                animationLevel = animationLevel
+            ) {
                 val isBiometricEnabled by viewModel.isBiometricEnabled.collectAsStateWithLifecycle()
                 val isBiometricAuthenticated by viewModel.isBiometricAuthenticated.collectAsStateWithLifecycle()
 

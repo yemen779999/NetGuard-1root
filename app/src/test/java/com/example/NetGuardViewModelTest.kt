@@ -93,4 +93,26 @@ class NetGuardViewModelTest {
         viewModel.refreshRootValidationInfo()
         assertNotNull(viewModel.rootVerificationStatus.value)
     }
+
+    @Test
+    fun test3dEffectsAndAnimationSettings() {
+        assertTrue(viewModel.is3dEffectsEnabled.value)
+        viewModel.toggle3dEffects(false)
+        assertFalse(viewModel.is3dEffectsEnabled.value)
+        viewModel.toggle3dEffects(true)
+        assertTrue(viewModel.is3dEffectsEnabled.value)
+
+        assertEquals(com.example.network.AnimationLevel.FULL, viewModel.animationLevel.value)
+        viewModel.setAnimationLevel(com.example.network.AnimationLevel.REDUCED)
+        assertEquals(com.example.network.AnimationLevel.REDUCED, viewModel.animationLevel.value)
+    }
+
+    @Test
+    fun testLiveMonitoringToggle() {
+        assertFalse(viewModel.isLiveMonitoring.value)
+        viewModel.toggleLiveMonitoring()
+        assertTrue(viewModel.isLiveMonitoring.value)
+        viewModel.toggleLiveMonitoring()
+        assertFalse(viewModel.isLiveMonitoring.value)
+    }
 }

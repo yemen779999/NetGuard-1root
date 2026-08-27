@@ -24,12 +24,99 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.draw.shadow
+import com.example.network.AnimationLevel
 import com.example.network.NetGuardViewModel
 import com.example.network.Screen
 import com.example.ui.theme.*
+
+/**
+ * Reusable GlassCard Composable component that reads the '3D Effects' state
+ * to conditionally apply semi-transparent background blurs and elevated shadows,
+ * aligning with the Obsidian Minimalist Cyber Security design language.
+ */
+@Composable
+fun GlassCard(
+    modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(16.dp),
+    accentGlow: Color = CyberGreen,
+    elevation: Dp = 8.dp,
+    onClick: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val is3dEnabled = Local3dEffectsEnabled.current
+
+    val containerColor = if (is3dEnabled) {
+        CyberSurface.copy(alpha = 0.85f)
+    } else {
+        CyberSurface
+    }
+
+    val cardElevation = if (is3dEnabled) elevation else 0.dp
+    val borderBrush = if (is3dEnabled) {
+        Brush.linearGradient(
+            listOf(
+                accentGlow.copy(alpha = 0.6f),
+                CyberBorder,
+                accentGlow.copy(alpha = 0.2f)
+            )
+        )
+    } else {
+        Brush.linearGradient(listOf(CyberBorder, CyberBorder))
+    }
+
+    Surface(
+        modifier = modifier
+            .then(
+                if (is3dEnabled) {
+                    Modifier.shadow(
+                        elevation = cardElevation,
+                        shape = shape,
+                        ambientColor = accentGlow.copy(alpha = 0.25f),
+                        spotColor = accentGlow.copy(alpha = 0.4f)
+                    )
+                } else Modifier
+            )
+            .border(
+                width = if (is3dEnabled) 1.2.dp else 1.dp,
+                brush = borderBrush,
+                shape = shape
+            )
+            .then(
+                if (onClick != null) Modifier.clickable { onClick() } else Modifier
+            ),
+        shape = shape,
+        color = containerColor
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            content = content
+        )
+    }
+}
+
+@Composable
+fun CyberGlassCard(
+    modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(16.dp),
+    accentGlow: Color = CyberGreen,
+    onClick: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    GlassCard(
+        modifier = modifier,
+        shape = shape,
+        accentGlow = accentGlow,
+        onClick = onClick,
+        content = content
+    )
+}
 
 data class NavigationItem(
     val label: String,

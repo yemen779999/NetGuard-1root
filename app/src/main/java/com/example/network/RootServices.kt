@@ -19,11 +19,14 @@ data class NetworkDevice(
     val mac: String,
     val name: String = "جهاز غير معروف",
     val type: DeviceType = DeviceType.PHONE,
-    var isBlocked: Boolean = false
+    var isBlocked: Boolean = false,
+    val vendor: String = "Unknown",
+    val hostname: String = "Unknown",
+    val typeLabel: String = "جهاز"
 )
 
 enum class DeviceType {
-    PHONE, LAPTOP, ROUTER, TV, SMART_HOME
+    PHONE, LAPTOP, ROUTER, TV, SMART_HOME, VIRTUAL_MACHINE
 }
 
 enum class ScanStrategy(val displayName: String, val description: String) {
@@ -505,40 +508,86 @@ object RootServices {
 
         // إضافة الراوتر
         val routerMac = foundDevices[routerIp] ?: "00:11:22:33:44:55"
+        val routerVendor = getMacVendor(routerMac).let { if (it == "Unknown") "Cisco / TP-Link" else it }
         devices.add(
             NetworkDevice(
                 ip = routerIp,
                 mac = routerMac,
                 name = "موزع شبكة الإتصال (الراوتر)",
                 type = DeviceType.ROUTER,
-                isBlocked = false
+                isBlocked = false,
+                vendor = routerVendor,
+                hostname = "router.local",
+                typeLabel = "راوتر"
             )
         )
 
         // إضافة الأجهزة الأخرى
         for ((ip, mac) in foundDevices) {
             if (ip == routerIp) continue
-            val deviceName = guessDeviceName(ip, mac)
-            val deviceType = guessDeviceType(deviceName)
+            val vendor = getMacVendor(mac)
+            val (deviceType, typeLabel) = detectDeviceType(mac, vendor, ip)
+            val hostname = resolveHostname(ip)
+            val deviceName = if (vendor != "Unknown") "$vendor (${ip.substringAfterLast('.')})" else guessDeviceName(ip, mac)
+
             devices.add(
                 NetworkDevice(
                     ip = ip,
                     mac = mac,
                     name = deviceName,
                     type = deviceType,
-                    isBlocked = isDeviceBlocked(ip)
+                    isBlocked = isDeviceBlocked(ip),
+                    vendor = vendor,
+                    hostname = hostname,
+                    typeLabel = typeLabel
                 )
             )
         }
 
         // إضافة أجهزة افتراضية للمحاكاة إذا لزم الأمر
         if (devices.size <= 1) {
-            logsList.add("[محاكاة] لم يتم العثور على أجهزة. توليد أجهزة افتراضية للمحاكاة.")
+            logsList.add("[محاكاة] لم يتم العثور على أجهزة كافية. توليد أجهزة افتراضية للمحاكاة.")
             val mockDevices = listOf(
-                NetworkDevice("$subnet.5", "A4:C2:55:DE:11:82", "هاتف ذكي (iPhone 15)", DeviceType.PHONE, isDeviceBlocked("$subnet.5")),
-                NetworkDevice("$subnet.143", "30:32:35:6E:72:51", "جهاز محمول (MacBook Pro)", DeviceType.LAPTOP, isDeviceBlocked("$subnet.143")),
-                NetworkDevice("$subnet.188", "E0:D0:7B:A2:44:99", "تلفاز ذكي (Sony Bravia TV)", DeviceType.TV, isDeviceBlocked("$subnet.188")),
-                NetworkDevice("$subnet.202", "D4:3B:04:15:CC:EE", "مساعد منزلي كاشف (Alexa Hub)", DeviceType.SMART_HOME, isDeviceBlocked("$subnet.202"))
+                NetworkDevice(
+                    ip = "$subnet.5",
+                    mac = "A4:C2:55:DE:11:82",
+                    name = "هاتف ذكي (iPhone 15 Pro)",
+                    type = DeviceType.PHONE,
+                    isBlocked = isDeviceBlocked("$subnet.5"),
+                    vendor = "Apple",
+                    hostname = "Anas-iPhone.local",
+                    typeLabel = "هاتف/جهاز"
+                ),
+                NetworkDevice(
+                    ip = "$subnet.143",
+                    mac = "38:87:D5:6E:72:51",
+                    name = "هاتف سامسونج (Galaxy S24)",
+                    type = DeviceType.PHONE,
+                    isBlocked = isDeviceBlocked("$subnet.143"),
+                    vendor = "Samsung",
+                    hostname = "Galaxy-S24",
+                    typeLabel = "هاتف/جهاز"
+                ),
+                NetworkDevice(
+                    ip = "$subnet.188",
+                    mac = "08:00:27:A2:44:99",
+                    name = "جهاز وهمي (Ubuntu VM)",
+                    type = DeviceType.VIRTUAL_MACHINE,
+                    isBlocked = isDeviceBlocked("$subnet.188"),
+                    vendor = "VirtualBox",
+                    hostname = "ubuntu-server",
+                    typeLabel = "جهاز وهمي"
+                ),
+                NetworkDevice(
+                    ip = "$subnet.202",
+                    mac = "D4:3B:04:15:CC:EE",
+                    name = "مساعد ذكي (Google Nest Hub)",
+                    type = DeviceType.SMART_HOME,
+                    isBlocked = isDeviceBlocked("$subnet.202"),
+                    vendor = "Google",
+                    hostname = "Google-Nest-Hub",
+                    typeLabel = "أجهزة ذكية"
+                )
             )
             devices.addAll(mockDevices)
         }
@@ -696,12 +745,95 @@ object RootServices {
 
     fun generateRandomMac(): String = generateRandomMacAddress()
 
-    private fun guessDeviceName(ip: String, mac: String = ""): String {
-        val cleanedMac = mac.replace("-", ":").uppercase()
+    private val MAC_VENDORS = mapOf(
+        "00:1A:2B" to "Apple",
+        "00:1B:63" to "Apple",
+        "00:1E:C2" to "Apple",
+        "A4:C2:55" to "Apple",
+        "30:32:35" to "Apple",
+        "F0:18:98" to "Apple",
+        "3C:5A:B4" to "Google",
+        "D4:3B:04" to "Google / Nest",
+        "38:87:D5" to "Samsung",
+        "8C:85:90" to "Samsung",
+        "50:01:D9" to "Samsung",
+        "F4:F5:D8" to "Huawei",
+        "70:8A:09" to "Huawei",
+        "00:1D:92" to "Cisco",
+        "00:50:56" to "VMware",
+        "08:00:27" to "VirtualBox",
+        "00:15:5D" to "Microsoft Hyper-V",
+        "B8:27:EB" to "Raspberry Pi",
+        "DC:A6:32" to "Raspberry Pi",
+        "E8:94:F6" to "TP-Link",
+        "50:D4:F7" to "TP-Link",
+        "C0:4A:00" to "TP-Link",
+        "00:18:E7" to "D-Link",
+        "1C:7E:E5" to "D-Link",
+        "20:4E:7F" to "NetGear",
+        "00:1F:33" to "NetGear",
+        "04:D4:C4" to "ASUS",
+        "00:22:6B" to "Linksys",
+        "64:09:80" to "Xiaomi",
+        "AC:C1:EE" to "Xiaomi",
+        "00:24:D7" to "Intel",
+        "54:E1:AD" to "Realtek",
+        "E0:D0:7B" to "Sony",
+        "A8:23:FE" to "LG Electronics",
+        "84:F3:EB" to "Espressif IoT"
+    )
+
+    fun getMacVendor(macAddress: String): String {
+        val clean = macAddress.replace("-", ":").uppercase()
+        if (clean.length >= 8) {
+            val prefix = clean.substring(0, 8)
+            MAC_VENDORS[prefix]?.let { return it }
+        }
+        return "Unknown"
+    }
+
+    fun detectDeviceType(mac: String, vendor: String, ip: String): Pair<DeviceType, String> {
+        val routers = listOf("Cisco", "TP-Link", "D-Link", "NetGear", "ASUS", "Linksys")
+        val phones = listOf("Apple", "Samsung", "Huawei", "Xiaomi", "Google", "OnePlus", "Sony", "LG Electronics")
+        val vms = listOf("VMware", "VirtualBox", "Microsoft Hyper-V")
+        val iot = listOf("Espressif IoT", "Raspberry Pi", "Google / Nest")
+
         return when {
-            ip.endsWith(".1") -> "موزع شبكة الإتصال (الراوتر)"
-            cleanedMac.startsWith("A4:C2:55") -> "أبل (Apple)"
-            else -> "جهاز متصل (${ip.substringAfterLast('.')})"
+            ip.endsWith(".1") || routers.any { vendor.contains(it, ignoreCase = true) } ->
+                Pair(DeviceType.ROUTER, "راوتر")
+            vms.any { vendor.contains(it, ignoreCase = true) } ->
+                Pair(DeviceType.VIRTUAL_MACHINE, "جهاز وهمي")
+            iot.any { vendor.contains(it, ignoreCase = true) } ->
+                Pair(DeviceType.SMART_HOME, "أجهزة ذكية / IoT")
+            vendor.contains("Apple", ignoreCase = true) ->
+                Pair(DeviceType.PHONE, "هاتف / آبل")
+            phones.any { vendor.contains(it, ignoreCase = true) } ->
+                Pair(DeviceType.PHONE, "هاتف / جهاز")
+            vendor.contains("Intel", ignoreCase = true) || vendor.contains("Realtek", ignoreCase = true) ->
+                Pair(DeviceType.LAPTOP, "كمبيوتر / لابتوب")
+            else ->
+                Pair(DeviceType.PHONE, "جهاز")
+        }
+    }
+
+    fun resolveHostname(ip: String): String {
+        return try {
+            val address = InetAddress.getByName(ip)
+            val host = address.hostName
+            if (host.isNullOrEmpty() || host == ip) "Unknown" else host
+        } catch (_: Exception) {
+            "Unknown"
+        }
+    }
+
+    private fun guessDeviceName(ip: String, mac: String = ""): String {
+        val vendor = getMacVendor(mac)
+        return if (vendor != "Unknown") {
+            "$vendor (${ip.substringAfterLast('.')})"
+        } else if (ip.endsWith(".1")) {
+            "موزع شبكة الإتصال (الراوتر)"
+        } else {
+            "جهاز متصل (${ip.substringAfterLast('.')})"
         }
     }
 

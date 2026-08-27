@@ -678,6 +678,57 @@ class NetGuardViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    // Continuous Network Monitor (مراقب الشبكة المباشر المتواصل)
+    private var monitorJob: kotlinx.coroutines.Job? = null
+    private val _isLiveMonitoring = MutableStateFlow(false)
+    val isLiveMonitoring: StateFlow<Boolean> = _isLiveMonitoring.asStateFlow()
+
+    private val _monitorIntervalSeconds = MutableStateFlow(10)
+    val monitorIntervalSeconds: StateFlow<Int> = _monitorIntervalSeconds.asStateFlow()
+
+    fun setMonitorInterval(seconds: Int) {
+        _monitorIntervalSeconds.value = seconds.coerceIn(5, 60)
+        if (_isLiveMonitoring.value) {
+            stopLiveMonitoring()
+            startLiveMonitoring()
+        }
+    }
+
+    fun toggleLiveMonitoring() {
+        if (_isLiveMonitoring.value) {
+            stopLiveMonitoring()
+        } else {
+            startLiveMonitoring()
+        }
+    }
+
+    fun startLiveMonitoring() {
+        _isLiveMonitoring.value = true
+        addLog("[مراقب الشبكة] تم تفعيل المراقبة الحية المتواصلة كل ${_monitorIntervalSeconds.value} ثانية...")
+        monitorJob?.cancel()
+        monitorJob = viewModelScope.launch {
+            while (_isLiveMonitoring.value) {
+                val context = getApplication<Application>()
+                val logs = mutableListOf<String>()
+                val subnet = RootServices.getCurrentSubnet(context)
+                _subnet.value = subnet
+
+                val devices = RootServices.scanNetwork("$subnet.0/24", context, logs, _selectedScanStrategy.value)
+                _scanState.value = ScanState.Success(devices)
+                updateBlockedDevicesList(devices)
+
+                kotlinx.coroutines.delay(_monitorIntervalSeconds.value * 1000L)
+            }
+        }
+    }
+
+    fun stopLiveMonitoring() {
+        _isLiveMonitoring.value = false
+        monitorJob?.cancel()
+        monitorJob = null
+        addLog("[مراقب الشبكة] تم إيقاف المراقبة الحية المتواصلة.")
+    }
+
     fun deleteScannedDeviceRecord(id: Int) {
         viewModelScope.launch {
             repository.deleteScannedDeviceRecord(id)
@@ -951,6 +1002,23 @@ class NetGuardViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    // UI 3D Effects and Animation Level Settings (Cyber 3D Engine)
+    private val _is3dEffectsEnabled = MutableStateFlow(true)
+    val is3dEffectsEnabled: StateFlow<Boolean> = _is3dEffectsEnabled.asStateFlow()
+
+    private val _animationLevel = MutableStateFlow(AnimationLevel.FULL)
+    val animationLevel: StateFlow<AnimationLevel> = _animationLevel.asStateFlow()
+
+    fun toggle3dEffects(enabled: Boolean) {
+        _is3dEffectsEnabled.value = enabled
+        addLog("تم ${if (enabled) "تفعيل" else "تعطيل"} تأثيرات العمق 3D والتوهج الزجاجي (3D Cyber Effects).")
+    }
+
+    fun setAnimationLevel(level: AnimationLevel) {
+        _animationLevel.value = level
+        addLog("تم ضبط مستوى الحركة والأنيميشن إلى: ${level.displayName}")
+    }
+
     // Export Full Application Backup Data to JSON String
     fun exportFullAppBackup(): String {
         val macs = savedMacs.value
@@ -1005,6 +1073,16 @@ class NetGuardViewModel(application: Application) : AndroidViewModel(application
 
 enum class ThemeMode {
     SYSTEM, LIGHT, DARK
+}
+
+enum class AnimationLevel(val displayName: String, val durationScale: Float) {
+    FULL("كامل (Full)", 1.0f),
+    REDUCED("مخفض (Reduced)", 0.5f),
+    OFF("معطل (Off)", 0.0f);
+
+    fun scaleDuration(durationMs: Int): Int {
+        return (durationMs * durationScale).toInt()
+    }
 }
 
 enum class Screen {

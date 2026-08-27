@@ -1,5 +1,5 @@
 {
-  "name": "Remix NetGuard Root",
+  "name": "NetGuard Root",
   "description": "حل هندسي متكامل للتحكم في الشبكة وتغيير الهوية (أندرويد +12) يتطلب صلاحيات الجذر (Root)",
   "requestFramePermissions": [],
   "majorCapabilities": [
