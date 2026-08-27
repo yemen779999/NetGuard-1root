@@ -26,6 +26,11 @@ val LightTextPrimaryRaw = Color(0xFF0F172A)
 val LightTextSecondaryRaw = Color(0xFF475569)
 val LightBorderRaw = Color(0xFFCBD5E1)
 
+// Raw Accent Colors for 3D Cyber Effects
+val DarkBlueRaw = Color(0xFF38BDF8)
+val DarkPurpleRaw = Color(0xFFA855F7)
+val DarkCyanRaw = Color(0xFF2DD4BF)
+
 // Dynamic Composable Color getters to seamlessly support full Dark and Light modes across all UI components
 val CyberDarkBg: Color @Composable get() = MaterialTheme.colorScheme.background
 val CyberSurface: Color @Composable get() = MaterialTheme.colorScheme.surface
@@ -33,6 +38,9 @@ val CyberSurfaceVariant: Color @Composable get() = MaterialTheme.colorScheme.sur
 val CyberGreen: Color @Composable get() = MaterialTheme.colorScheme.primary
 val CyberRed: Color @Composable get() = MaterialTheme.colorScheme.tertiary
 val CyberOrange: Color @Composable get() = if (MaterialTheme.colorScheme.background == LightBgRaw) LightOrangeRaw else DarkOrangeRaw
+val CyberBlue: Color @Composable get() = DarkBlueRaw
+val CyberPurple: Color @Composable get() = DarkPurpleRaw
+val CyberCyan: Color @Composable get() = DarkCyanRaw
 val CyberTextPrimary: Color @Composable get() = MaterialTheme.colorScheme.onSurface
 val CyberTextSecondary: Color @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
 val CyberBorder: Color @Composable get() = MaterialTheme.colorScheme.outline

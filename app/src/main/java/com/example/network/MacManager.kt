@@ -28,12 +28,7 @@ object MacManager {
      * Returns true if root is granted, false otherwise.
      */
     fun isRootGranted(): Boolean {
-        return try {
-            Shell.rootAccess()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error checking Shell.rootAccess()", e)
-            false
-        }
+        return RootServices.isRootAvailable()
     }
 
     /**

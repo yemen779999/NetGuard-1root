@@ -16,6 +16,7 @@ import com.example.data.NetworkRepository
 import com.example.data.NetworkWithDevices
 import com.example.data.SavedMac
 import com.example.data.ScannedDeviceRecord
+import com.example.ui.theme.ThemeStateManager
 import com.example.network.AuthManager
 import com.example.network.FirestoreManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -203,6 +204,7 @@ class NetGuardViewModel(application: Application) : AndroidViewModel(application
 
     fun setThemeMode(mode: ThemeMode) {
         _themeMode.value = mode
+        ThemeStateManager.setThemeMode(mode)
         val label = when (mode) {
             ThemeMode.SYSTEM -> "تلقائي حسب النظام (System Default)"
             ThemeMode.LIGHT -> "المظهر الفاتح (Light Mode)"
@@ -315,6 +317,7 @@ class NetGuardViewModel(application: Application) : AndroidViewModel(application
 
     fun refreshRootValidationInfo() {
         viewModelScope.launch {
+            RootServices.resetRootCache()
             val status = RootAccessManager.verifyRootAccessOnLaunch()
             val info = RootAccessManager.rootValidationInfo.value
             _isRootGranted.value = status == RootVerificationStatus.VERIFIED_ROOT
@@ -382,13 +385,14 @@ class NetGuardViewModel(application: Application) : AndroidViewModel(application
     fun requestRootAccess() {
         viewModelScope.launch {
             addLog("جاري التحقق من صلاحية الروت بواسطة RootAccessManager عبر مكتبة libsu...")
+            RootServices.resetRootCache()
             val status = RootAccessManager.verifyRootAccessOnLaunch()
             val isGranted = status == RootVerificationStatus.VERIFIED_ROOT
             _isRootGranted.value = isGranted
             if (isGranted) {
-                addLog("[تأكيد] تم توثيق تفويض الروت بنجاح!")
+                addLog("[تأكيد] تم توثيق تفويض الروت بنجاح (Root Access Verified)!")
             } else {
-                addLog("[خطأ] تعذر الحصول على صلاحيات الروت. التطبيق يتطلب روت للعمل.")
+                addLog("[تنبيه] تعذر الحصول على صلاحيات الروت المباشرة. تم تفعيل وضع المحاكاة الأمنية (Simulation Fallback Mode).")
             }
             refreshNetworkInfo()
         }
@@ -1011,11 +1015,13 @@ class NetGuardViewModel(application: Application) : AndroidViewModel(application
 
     fun toggle3dEffects(enabled: Boolean) {
         _is3dEffectsEnabled.value = enabled
+        ThemeStateManager.set3dEffectsEnabled(enabled)
         addLog("تم ${if (enabled) "تفعيل" else "تعطيل"} تأثيرات العمق 3D والتوهج الزجاجي (3D Cyber Effects).")
     }
 
     fun setAnimationLevel(level: AnimationLevel) {
         _animationLevel.value = level
+        ThemeStateManager.setAnimationLevel(level)
         addLog("تم ضبط مستوى الحركة والأنيميشن إلى: ${level.displayName}")
     }
 

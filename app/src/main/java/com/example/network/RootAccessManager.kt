@@ -33,33 +33,24 @@ object RootAccessManager {
         Log.d(TAG, "Initiating libsu superuser permission verification on launch...")
         
         try {
-            // Attempt to retrieve or build the primary libsu shell instance
-            val isGranted = Shell.rootAccess()
-
-            val info = RootServices.getRootValidationInfo()
+            RootServices.resetRootCache()
+            val (status, info) = RootDetector.detectRoot()
             _rootValidationInfo.value = info
-
-            val status = if (isGranted && info.isRootGranted) {
-                RootVerificationStatus.VERIFIED_ROOT
-            } else {
-                RootVerificationStatus.SIMULATION_MODE
-            }
-
             _verificationStatus.value = status
             Log.i(TAG, "Root verification completed: $status (UID: ${info.shellUid})")
             status
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e(TAG, "Failed during libsu root verification", e)
             val fallbackInfo = RootValidationInfo(
                 isRootGranted = false,
-                shellUid = "خطأ في الاتصال بالحرفي",
+                shellUid = "تم رفض الإذن (Access Denied)",
                 shellVersion = "libsu Error",
                 selinuxMode = "Unknown",
                 suBinaryPath = "غير متاح"
             )
             _rootValidationInfo.value = fallbackInfo
-            _verificationStatus.value = RootVerificationStatus.SIMULATION_MODE
-            RootVerificationStatus.SIMULATION_MODE
+            _verificationStatus.value = RootVerificationStatus.DENIED
+            RootVerificationStatus.DENIED
         }
     }
 

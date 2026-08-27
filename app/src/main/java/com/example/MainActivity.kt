@@ -281,11 +281,19 @@ fun AppNavigationDrawerContent(
                         Text(text = "MAC: $currentMac", fontSize = 10.sp, color = CyberTextSecondary, fontFamily = FontFamily.Monospace)
                     }
                     Badge(
-                        containerColor = if (rootStatus == RootVerificationStatus.VERIFIED_ROOT) CyberGreen else CyberOrange,
+                        containerColor = when (rootStatus) {
+                            RootVerificationStatus.VERIFIED_ROOT -> CyberGreen
+                            RootVerificationStatus.DENIED -> CyberRed
+                            else -> CyberOrange
+                        },
                         contentColor = CyberDarkBg
                     ) {
                         Text(
-                            text = if (rootStatus == RootVerificationStatus.VERIFIED_ROOT) "ROOT ACTIVE" else "SIMULATION",
+                            text = when (rootStatus) {
+                                RootVerificationStatus.VERIFIED_ROOT -> "ROOT ACTIVE"
+                                RootVerificationStatus.DENIED -> "ACCESS DENIED"
+                                else -> "SIMULATION"
+                            },
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
@@ -326,9 +334,9 @@ fun AppNavigationDrawerContent(
 
         HorizontalDivider(color = CyberBorder, modifier = Modifier.padding(vertical = 4.dp))
 
-        // Section 2: ⚡ Sidebar Pages (أدوات الروت والسجلات الثلاث)
+        // Section 2: ⚡ Sidebar Pages (أدوات الأمن والتنقل الجانبي)
         Text(
-            text = "أدوات الروت والسجلات (القائمة الجانبية)",
+            text = "أدوات الأمن والتنقل الجانبي",
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             color = CyberGreen,
