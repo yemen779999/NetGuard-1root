@@ -61,24 +61,46 @@ object RootServices {
     private val isRootChecked = AtomicBoolean(false)
     private var isRootCached = false
 
-    // تحسين التحقق من صلاحيات الروت باستخدام التخزين المؤقت
-    fun isRootGranted(): Boolean = Shell.rootAccess()
+    // تحسين التحقق من صلاحيات الروت وتفريغ التخزين المؤقت عند الحاجة
+    fun resetRootCache() {
+        isRootChecked.set(false)
+        isRootCached = false
+    }
 
-    fun isRootAvailable(): Boolean {
-        if (isRootChecked.get()) return isRootCached
-        val result = Shell.rootAccess()
+    fun isRootGranted(): Boolean {
+        return try {
+            val granted = Shell.isAppGrantedRoot()
+            if (granted != null) {
+                granted
+            } else {
+                runBlocking { RootDetector.checkRootAccess(3000L) }
+            }
+        } catch (e: Throwable) {
+            Log.e(TAG, "Error checking root access", e)
+            false
+        }
+    }
+
+    fun isRootAvailable(forceCheck: Boolean = false): Boolean {
+        if (!forceCheck && isRootChecked.get()) return isRootCached
+        val result = isRootGranted()
         isRootCached = result
         isRootChecked.set(true)
         return result
     }
 
-    // Asynchronously request root access by initializing the libsu Shell
+    // Asynchronously request root access by initializing the libsu Shell with timeout
     suspend fun requestRootPermission(): Boolean = withContext(Dispatchers.IO) {
         try {
-            val shell = Shell.getShell()
-            shell.isRoot
-        } catch (e: Exception) {
+            resetRootCache()
+            val isRoot = RootDetector.checkRootAccess(5000L)
+            isRootCached = isRoot
+            isRootChecked.set(true)
+            isRoot
+        } catch (e: Throwable) {
             Log.e(TAG, "Error requesting root permission", e)
+            isRootCached = false
+            isRootChecked.set(true)
             false
         }
     }
@@ -132,7 +154,7 @@ object RootServices {
 
     // Retrieve detailed Root and shell validation parameters via libsu
     suspend fun getRootValidationInfo(): RootValidationInfo = withContext(Dispatchers.IO) {
-        val isRoot = isRootAvailable()
+        val isRoot = isRootAvailable(forceCheck = true)
         if (!isRoot) {
             return@withContext RootValidationInfo(
                 isRootGranted = false,

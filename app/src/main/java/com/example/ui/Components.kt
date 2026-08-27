@@ -126,15 +126,14 @@ data class NavigationItem(
 
 fun getBottomNavigationItems() = listOf(
     NavigationItem("الرئيسية", Icons.Default.VpnKey, Screen.Main),
-    NavigationItem("MacManager", Icons.Default.SettingsEthernet, Screen.MacManager),
-    NavigationItem("سجل العمليات", Icons.Default.ListAlt, Screen.Logs),
     NavigationItem("رادار الشبكة", Icons.Default.Radar, Screen.NetworkRadar),
-    NavigationItem("قطع النت", Icons.Default.Block, Screen.BlockedDevices)
+    NavigationItem("قطع النت", Icons.Default.Block, Screen.BlockedDevices),
+    NavigationItem("الإعدادات", Icons.Default.Settings, Screen.Settings)
 )
 
 fun getDrawerNavigationItems() = listOf(
-    NavigationItem("MacManager (إدارة الماك)", Icons.Default.SettingsEthernet, Screen.MacManager),
-    NavigationItem("سجلات عمليات الماك", Icons.Default.ListAlt, Screen.Logs),
+    NavigationItem("رادار الشبكة", Icons.Default.Radar, Screen.NetworkRadar),
+    NavigationItem("قطع وحظر النت", Icons.Default.Block, Screen.BlockedDevices),
     NavigationItem("الطرفية su", Icons.Default.Terminal, Screen.RootConsole),
     NavigationItem("المحفوظة", Icons.Default.Bookmark, Screen.SavedMacs),
     NavigationItem("السجل والتدقيق", Icons.Default.History, Screen.History),

@@ -40,20 +40,46 @@ object BackupRestoreManager {
      */
     fun importSavedMacsFromJson(jsonString: String): List<SavedMac> {
         val result = mutableListOf<SavedMac>()
-        val root = JSONObject(jsonString)
-        
-        val array = when {
-            root.has("saved_macs") -> root.getJSONArray("saved_macs")
-            root.has("items") -> root.getJSONArray("items")
-            else -> JSONArray(jsonString)
+        val trimmed = jsonString.trim()
+
+        val array: JSONArray = try {
+            if (trimmed.startsWith("[")) {
+                JSONArray(trimmed)
+            } else {
+                val root = JSONObject(trimmed)
+                when {
+                    root.has("saved_macs") -> root.getJSONArray("saved_macs")
+                    root.has("items") -> root.getJSONArray("items")
+                    root.has("macs") -> root.getJSONArray("macs")
+                    else -> JSONArray()
+                }
+            }
+        } catch (e: Exception) {
+            JSONArray()
         }
 
         for (i in 0 until array.length()) {
-            val obj = array.getJSONObject(i)
-            val title = obj.optString("title", "MAC مستورد")
-            val mac = obj.getString("macAddress")
-            val time = obj.optLong("timestamp", System.currentTimeMillis())
-            result.add(SavedMac(title = title, macAddress = mac, timestamp = time))
+            try {
+                val obj = array.getJSONObject(i)
+                val title = when {
+                    obj.has("title") -> obj.getString("title")
+                    obj.has("name") -> obj.getString("name")
+                    obj.has("label") -> obj.getString("label")
+                    else -> "MAC مستورد #${i + 1}"
+                }
+                val mac = when {
+                    obj.has("macAddress") -> obj.getString("macAddress")
+                    obj.has("mac_address") -> obj.getString("mac_address")
+                    obj.has("mac") -> obj.getString("mac")
+                    else -> ""
+                }
+                if (mac.isNotBlank()) {
+                    val time = obj.optLong("timestamp", System.currentTimeMillis())
+                    result.add(SavedMac(title = title, macAddress = mac, timestamp = time))
+                }
+            } catch (_: Exception) {
+                // Skip invalid JSON object entry
+            }
         }
         return result
     }

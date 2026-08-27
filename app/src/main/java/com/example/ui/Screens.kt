@@ -1,6 +1,10 @@
 package com.example.ui
 
+import android.net.Uri
+import android.content.Intent
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -19,10 +23,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import com.example.R
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -82,6 +90,69 @@ fun MainIdentityScreen(viewModel: NetGuardViewModel) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // 🛡️ CYBERSECURITY HERO BANNER & APP ICON SHOWCASE
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = CyberSurface),
+                border = BorderStroke(1.dp, CyberGreen.copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth().testTag("cyber_security_banner_card")
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(130.dp)
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.img_cyber_hero_1787801239559),
+                        contentDescription = "Cyber Security Banner",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                androidx.compose.ui.graphics.Brush.verticalGradient(
+                                    colors = listOf(Color.Transparent, CyberDarkBg.copy(alpha = 0.85f))
+                                )
+                            )
+                    )
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.img_app_icon_1787801224001),
+                            contentDescription = "App Icon",
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .border(1.dp, CyberGreen, RoundedCornerShape(10.dp))
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "NETGUARD ROOT SECURITY",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = CyberGreen,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Text(
+                                text = "درع الأمن السيبراني وهندسة الشبكات 3D",
+                                fontSize = 11.sp,
+                                color = CyberTextPrimary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // 🌐 LIVE NETWORK DASHBOARD
         item {
             Card(
@@ -609,6 +680,32 @@ fun SavedMacsScreen(viewModel: NetGuardViewModel) {
     var newTitle by remember { mutableStateOf("") }
     var newMac by remember { mutableStateOf("") }
 
+    var showExportDialog by remember { mutableStateOf(false) }
+    var exportJsonContent by remember { mutableStateOf("") }
+    var showImportDialog by remember { mutableStateOf(false) }
+    var importJsonInput by remember { mutableStateOf("") }
+
+    val jsonFilePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            try {
+                val inputStream = context.contentResolver.openInputStream(it)
+                val text = inputStream?.bufferedReader().use { reader -> reader?.readText() }
+                if (!text.isNullOrBlank()) {
+                    val success = viewModel.importSavedMacs(text, clearExisting = false)
+                    if (success) {
+                        Toast.makeText(context, "تم استيراد العناوين بنجاح من الملف!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "فشل استيراد الملف، تأكد من صحة تنسيق JSON", Toast.LENGTH_LONG).show()
+                    }
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "خطأ في قراءة الملف: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     val filteredList = remember(savedMacs, searchQuery) {
         if (searchQuery.isBlank()) savedMacs
         else savedMacs.filter {
@@ -617,252 +714,424 @@ fun SavedMacsScreen(viewModel: NetGuardViewModel) {
         }
     }
 
-    LazyColumn(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .background(CyberDarkBg)
     ) {
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = CyberSurface),
-                border = BorderStroke(1.dp, CyberBorder),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = "قائمة عناوين MAC المحفوظة (Room Database)",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = CyberTextPrimary
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "إدارة وحفظ الهويات المفضلة للتنقل السريع بين بروفايلات الشبكة.",
-                                fontSize = 11.sp,
-                                color = CyberTextSecondary
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholder = { Text("بحث باسم الجهاز أو الماك...", fontSize = 12.sp) },
-                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = CyberGreen) },
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = CyberGreen,
-                                unfocusedBorderColor = CyberBorder,
-                                focusedContainerColor = CyberSurfaceVariant,
-                                unfocusedContainerColor = CyberSurfaceVariant
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("saved_macs_search_input")
-                        )
-
-                        Button(
-                            onClick = { showAddDialog = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = CyberGreen, contentColor = CyberDarkBg),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .height(56.dp)
-                                .testTag("add_new_saved_mac_btn")
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = "Add")
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("إضافة", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        }
-                    }
-                }
-            }
-        }
-
-        if (filteredList.isEmpty()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
             item {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = CyberSurface),
                     border = BorderStroke(1.dp, CyberBorder),
                     shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 24.dp)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.BookmarkBorder,
-                            contentDescription = "Empty",
-                            tint = CyberTextSecondary,
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = if (searchQuery.isNotEmpty()) "لا توجد نتائج تطابق البحث" else "لا توجد عناوين MAC محفوظة حالياً",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = CyberTextSecondary
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "اضغط على زر الإضافة بالنوع لإنشاء عنوان جديد في المفضلة.",
-                            fontSize = 11.sp,
-                            color = CyberTextSecondary,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            }
-        } else {
-            items(filteredList) { savedMac ->
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = CyberSurface),
-                    border = BorderStroke(1.dp, CyberBorder),
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth().testTag("saved_mac_item_${savedMac.id}")
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Bookmark, contentDescription = null, tint = CyberGreen, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
                                 Text(
-                                    text = savedMac.title,
-                                    fontSize = 14.sp,
+                                    text = "قائمة عناوين MAC المحفوظة (Room Database)",
+                                    fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = CyberTextPrimary
                                 )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "إدارة وحفظ الهويات المفضلة للتنقل السريع بين بروفايلات الشبكة.",
+                                    fontSize = 11.sp,
+                                    color = CyberTextSecondary
+                                )
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = savedMac.macAddress,
-                                fontSize = 14.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold,
-                                color = CyberGreen
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "تاريخ الحفظ: ${savedMac.timestamp.formatTimestamp()}",
-                                fontSize = 10.sp,
-                                color = CyberTextSecondary
-                            )
                         }
 
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text("بحث باسم الجهاز أو الماك...", fontSize = 12.sp) },
+                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = CyberGreen) },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = CyberGreen,
+                                    unfocusedBorderColor = CyberBorder,
+                                    focusedContainerColor = CyberSurfaceVariant,
+                                    unfocusedContainerColor = CyberSurfaceVariant
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("saved_macs_search_input")
+                            )
+
                             Button(
-                                onClick = {
-                                    viewModel.restoreMac(savedMac.macAddress)
-                                    Toast.makeText(context, "جاري تطبيق ${savedMac.title}...", Toast.LENGTH_SHORT).show()
-                                },
+                                onClick = { showAddDialog = true },
                                 colors = ButtonDefaults.buttonColors(containerColor = CyberGreen, contentColor = CyberDarkBg),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                                modifier = Modifier.height(36.dp)
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .height(56.dp)
+                                    .testTag("add_new_saved_mac_btn")
                             ) {
-                                Icon(Icons.Default.VpnKey, contentDescription = "Apply", modifier = Modifier.size(14.dp))
+                                Icon(Icons.Default.Add, contentDescription = "Add")
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("تطبيق", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("إضافة", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    exportJsonContent = viewModel.exportSavedMacs()
+                                    showExportDialog = true
+                                },
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = CyberGreen),
+                                border = BorderStroke(1.dp, CyberGreen),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.weight(1f).testTag("export_saved_macs_json_btn")
+                            ) {
+                                Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("تصدير JSON", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
 
-                            Spacer(modifier = Modifier.width(4.dp))
-
-                            IconButton(
-                                onClick = {
-                                    clipboardManager.setText(AnnotatedString(savedMac.macAddress))
-                                    Toast.makeText(context, "تم النسخ", Toast.LENGTH_SHORT).show()
-                                }
+                            OutlinedButton(
+                                onClick = { showImportDialog = true },
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = CyberOrange),
+                                border = BorderStroke(1.dp, CyberOrange),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.weight(1f).testTag("import_saved_macs_json_btn")
                             ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = CyberGreen, modifier = Modifier.size(18.dp))
+                                Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("استيراد JSON", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
 
-                            IconButton(
-                                onClick = {
-                                    viewModel.deleteSavedMac(savedMac)
-                                }
+                            OutlinedButton(
+                                onClick = { jsonFilePickerLauncher.launch("application/json") },
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = CyberTextSecondary),
+                                border = BorderStroke(1.dp, CyberBorder),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.width(48.dp).testTag("import_json_file_btn")
                             ) {
-                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = CyberRed, modifier = Modifier.size(18.dp))
+                                Icon(Icons.Default.FolderOpen, contentDescription = "Open file", modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (filteredList.isEmpty()) {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = CyberSurface),
+                        border = BorderStroke(1.dp, CyberBorder),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.BookmarkBorder,
+                                contentDescription = "Empty",
+                                tint = CyberTextSecondary,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = if (searchQuery.isNotEmpty()) "لا توجد نتائج تطابق البحث" else "لا توجد عناوين MAC محفوظة حالياً",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = CyberTextSecondary
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "اضغط على زر الإضافة بالنوع لإنشاء عنوان جديد في المفضلة.",
+                                fontSize = 11.sp,
+                                color = CyberTextSecondary,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            } else {
+                items(filteredList) { savedMac ->
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = CyberSurface),
+                        border = BorderStroke(1.dp, CyberBorder),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth().testTag("saved_mac_item_${savedMac.id}")
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Bookmark, contentDescription = null, tint = CyberGreen, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = savedMac.title,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = CyberTextPrimary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = savedMac.macAddress,
+                                    fontSize = 14.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    color = CyberGreen
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "تاريخ الحفظ: ${savedMac.timestamp.formatTimestamp()}",
+                                    fontSize = 10.sp,
+                                    color = CyberTextSecondary
+                                )
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Button(
+                                    onClick = {
+                                        viewModel.restoreMac(savedMac.macAddress)
+                                        Toast.makeText(context, "جاري تطبيق ${savedMac.title}...", Toast.LENGTH_SHORT).show()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = CyberGreen, contentColor = CyberDarkBg),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                    modifier = Modifier.height(36.dp)
+                                ) {
+                                    Icon(Icons.Default.VpnKey, contentDescription = "Apply", modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("تطبيق", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                Spacer(modifier = Modifier.width(4.dp))
+
+                                IconButton(
+                                    onClick = {
+                                        clipboardManager.setText(AnnotatedString(savedMac.macAddress))
+                                        Toast.makeText(context, "تم النسخ", Toast.LENGTH_SHORT).show()
+                                    }
+                                ) {
+                                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = CyberGreen, modifier = Modifier.size(18.dp))
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        viewModel.deleteSavedMac(savedMac)
+                                    }
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = CyberRed, modifier = Modifier.size(18.dp))
+                                }
                             }
                         }
                     }
                 }
             }
         }
-    }
 
-    if (showAddDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddDialog = false },
-            title = { Text("إضافة عنوان MAC جديد للمفضلة", color = CyberTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = newTitle,
-                        onValueChange = { newTitle = it },
-                        label = { Text("اسم الجهاز") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = newMac,
-                        onValueChange = { newMac = it },
-                        label = { Text("عنوان MAC") },
-                        placeholder = { Text("00:11:22:33:44:55", fontFamily = FontFamily.Monospace) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.saveMacAddress(newTitle, newMac) { success, msg ->
-                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                            if (success) {
-                                newTitle = ""
-                                newMac = ""
-                                showAddDialog = false
-                            }
+        // Export Dialog
+        if (showExportDialog) {
+            AlertDialog(
+                onDismissRequest = { showExportDialog = false },
+                title = {
+                    Text("تصدير العناوين المحفوظة (JSON)", color = CyberTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                },
+                text = {
+                    Column {
+                        Text("يمكنك نسخ بيانات JSON أدناه أو مشاركتها لحفظ نسخة احتياطية من العناوين المفضلة:", fontSize = 12.sp, color = CyberTextSecondary)
+                        Spacer(modifier = Modifier.height(10.dp))
+                        OutlinedTextField(
+                            value = exportJsonContent,
+                            onValueChange = {},
+                            readOnly = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = CyberGreen),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = CyberGreen,
+                                unfocusedBorderColor = CyberBorder,
+                                focusedContainerColor = CyberSurfaceVariant,
+                                unfocusedContainerColor = CyberSurfaceVariant
+                            )
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            clipboardManager.setText(AnnotatedString(exportJsonContent))
+                            Toast.makeText(context, "تم نسخ بيانات JSON إلى الحافظة 📋", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = CyberGreen, contentColor = CyberDarkBg),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("نسخ JSON", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showExportDialog = false }) {
+                        Text("إغلاق", color = CyberTextSecondary)
+                    }
+                },
+                containerColor = CyberSurface
+            )
+        }
+
+        // Import Dialog
+        if (showImportDialog) {
+            AlertDialog(
+                onDismissRequest = { showImportDialog = false },
+                title = {
+                    Text("استيراد العناوين (JSON)", color = CyberTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                },
+                text = {
+                    Column {
+                        Text("ألصق نص JSON الخاص بالعناوين المحفوظة أدناه، أو اضغط على استعراض لاختيار ملف من الجهاز:", fontSize = 12.sp, color = CyberTextSecondary)
+                        Spacer(modifier = Modifier.height(10.dp))
+                        OutlinedTextField(
+                            value = importJsonInput,
+                            onValueChange = { importJsonInput = it },
+                            placeholder = { Text("أدخل نص JSON هنا...", fontSize = 12.sp) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp),
+                            textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = CyberTextPrimary),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = CyberOrange,
+                                unfocusedBorderColor = CyberBorder,
+                                focusedContainerColor = CyberSurfaceVariant,
+                                unfocusedContainerColor = CyberSurfaceVariant
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { jsonFilePickerLauncher.launch("application/json") },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = CyberOrange),
+                            border = BorderStroke(1.dp, CyberOrange),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("استعراض ملف JSON من الجهاز...", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = CyberGreen, contentColor = CyberDarkBg)
-                ) {
-                    Text("حفظ", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) { Text("إلغاء", color = CyberTextSecondary) }
-            },
-            containerColor = CyberSurface
-        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (importJsonInput.isNotBlank()) {
+                                val success = viewModel.importSavedMacs(importJsonInput, clearExisting = false)
+                                if (success) {
+                                    Toast.makeText(context, "تم استيراد العناوين بنجاح من النص!", Toast.LENGTH_SHORT).show()
+                                    showImportDialog = false
+                                    importJsonInput = ""
+                                } else {
+                                    Toast.makeText(context, "فشل الاستيراد، تحقق من صحة تنسيق JSON", Toast.LENGTH_LONG).show()
+                                }
+                            } else {
+                                Toast.makeText(context, "الرجاء إدخال نص JSON أو اختيار ملف", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = CyberOrange, contentColor = CyberDarkBg),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("استيراد الآن", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showImportDialog = false }) {
+                        Text("إلغاء", color = CyberTextSecondary)
+                    }
+                },
+                containerColor = CyberSurface
+            )
+        }
+
+        if (showAddDialog) {
+            AlertDialog(
+                onDismissRequest = { showAddDialog = false },
+                title = { Text("إضافة عنوان MAC جديد للمفضلة", color = CyberTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(
+                            value = newTitle,
+                            onValueChange = { newTitle = it },
+                            label = { Text("اسم الجهاز") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = newMac,
+                            onValueChange = { newMac = it },
+                            label = { Text("عنوان MAC") },
+                            placeholder = { Text("00:11:22:33:44:55", fontFamily = FontFamily.Monospace) },
+                            singleLine = true,
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.saveMacAddress(newTitle, newMac) { success, msg ->
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                if (success) {
+                                    newTitle = ""
+                                    newMac = ""
+                                    showAddDialog = false
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = CyberGreen, contentColor = CyberDarkBg)
+                    ) {
+                        Text("حفظ", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showAddDialog = false }) { Text("إلغاء", color = CyberTextSecondary) }
+                },
+                containerColor = CyberSurface
+            )
+        }
     }
 }
 
@@ -1730,6 +1999,7 @@ fun BlockedDevicesScreen(viewModel: NetGuardViewModel) {
 // ============================================================================
 // SCREEN 6: SETTINGS SCREEN (الإعدادات والأمان وبروفايلات Room)
 // ============================================================================
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: NetGuardViewModel) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
@@ -1791,44 +2061,78 @@ fun SettingsScreen(viewModel: NetGuardViewModel) {
                             )
                         }
                     }
+                }
+            }
+        }
+
+        // SECTION 2: DISPLAY & EFFECTS
+        item {
+            val is3dEffects by viewModel.is3dEffectsEnabled.collectAsStateWithLifecycle()
+            val animationLevel by viewModel.animationLevel.collectAsStateWithLifecycle()
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = CyberSurface),
+                border = BorderStroke(1.dp, CyberBorder),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth().testTag("display_and_effects_card")
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Tune,
+                            contentDescription = null,
+                            tint = CyberGreen,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "العرض والتأثيرات (Display & Effects)",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = CyberGreen
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // 3D Effects & Glassmorphism Toggle
-                    val is3dEffects by viewModel.is3dEffectsEnabled.collectAsStateWithLifecycle()
-                    val animationLevel by viewModel.animationLevel.collectAsStateWithLifecycle()
-
+                    // 3D Effects Switch
                     SettingsSwitchRow(
-                        title = "تأثيرات العمق 3D والزجاج (3D Glassmorphism)",
-                        subtitle = "تفعيل طبقات العمق البصري ثلاثي الأبعاد وتوهج النيون السيبراني",
+                        title = "تأثيرات العمق 3D (3D Effects)",
+                        subtitle = "تفعيل خلفيات الزجاج الشفاف، ظلال العمق والتوهج السيبراني",
                         checked = is3dEffects,
                         onCheckedChange = { viewModel.toggle3dEffects(it) }
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
-                    Text("مستوى الحركة والأنيميشن (Animations):", fontSize = 11.sp, color = CyberTextSecondary)
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Text("مستوى الحركة والأنيميشن (Animation Level):", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CyberTextSecondary)
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    SingleChoiceSegmentedButtonRow(
+                        modifier = Modifier.fillMaxWidth().testTag("animation_level_segmented_button")
                     ) {
-                        AnimationLevel.values().forEach { level ->
-                            val selected = animationLevel == level
-                            FilterChip(
-                                selected = selected,
+                        AnimationLevel.values().forEachIndexed { index, level ->
+                            SegmentedButton(
+                                selected = animationLevel == level,
                                 onClick = { viewModel.setAnimationLevel(level) },
-                                label = { Text(level.displayName, fontSize = 10.sp, fontWeight = FontWeight.Bold) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = CyberGreen,
-                                    selectedLabelColor = CyberDarkBg,
-                                    containerColor = CyberSurfaceVariant,
-                                    labelColor = CyberTextSecondary
-                                ),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.weight(1f)
-                            )
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = AnimationLevel.values().size),
+                                colors = SegmentedButtonDefaults.colors(
+                                    activeContainerColor = CyberGreen,
+                                    activeContentColor = CyberDarkBg,
+                                    inactiveContainerColor = CyberSurfaceVariant,
+                                    inactiveContentColor = CyberTextSecondary
+                                )
+                            ) {
+                                Text(
+                                    when (level) {
+                                        AnimationLevel.FULL -> "Full"
+                                        AnimationLevel.REDUCED -> "Reduced"
+                                        AnimationLevel.OFF -> "Off"
+                                    },
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
@@ -2583,6 +2887,8 @@ private fun DiagnosticMetricCell(
 
 @Composable
 fun RootRequiredScreen(viewModel: NetGuardViewModel) {
+    val rootStatus by viewModel.rootVerificationStatus.collectAsStateWithLifecycle()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -2592,21 +2898,25 @@ fun RootRequiredScreen(viewModel: NetGuardViewModel) {
         verticalArrangement = Arrangement.Center
     ) {
         Icon(
-            imageVector = Icons.Default.Security,
+            imageVector = if (rootStatus == RootVerificationStatus.DENIED) Icons.Default.Block else Icons.Default.Security,
             contentDescription = null,
             tint = CyberRed,
             modifier = Modifier.size(64.dp)
         )
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "صلاحيات الروت مطلوبة",
+            text = if (rootStatus == RootVerificationStatus.DENIED) "تم رفض صلاحية الروت (Access Denied)" else "صلاحيات الروت غير متاحة",
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = CyberTextPrimary
+            color = CyberTextPrimary,
+            textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "هذا التطبيق يحتاج إلى صلاحيات الجذر (Root) ليعمل بشكل صحيح. يرجى منح الصلاحيات عبر Magisk أو KernelSU.",
+            text = if (rootStatus == RootVerificationStatus.DENIED)
+                "تم رفض طلب صلاحيات السوبر يوزر بواسطة Magisk/KernelSU أو انتهت مهلة الفحص على Android 12+. يمكنك المتابعة بوضع المحاكاة أو إعادة طلب الإذن."
+            else
+                "هذا التطبيق يستفيد من صلاحيات الجذر (Root/libsu) للتحكم المباشر بالشبكة. يمكنك استخدام وضع المحاكاة دون الحاجة لروت.",
             fontSize = 14.sp,
             color = CyberTextSecondary,
             textAlign = TextAlign.Center
@@ -2615,17 +2925,20 @@ fun RootRequiredScreen(viewModel: NetGuardViewModel) {
         Button(
             onClick = { viewModel.requestRootAccess() },
             colors = ButtonDefaults.buttonColors(containerColor = CyberGreen),
-            shape = RoundedCornerShape(10.dp)
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth().testTag("retry_root_check_button")
         ) {
-            Text("إعادة التحقق من الروت", fontWeight = FontWeight.Bold)
+            Text("إعادة التحقق من الروت (libsu Check)", fontWeight = FontWeight.Bold, color = CyberDarkBg)
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(
-            onClick = { android.os.Process.killProcess(android.os.Process.myPid()) },
-            colors = ButtonDefaults.buttonColors(containerColor = CyberRed),
-            shape = RoundedCornerShape(10.dp)
+        Spacer(modifier = Modifier.height(12.dp))
+        OutlinedButton(
+            onClick = { viewModel.refreshNetworkInfo() },
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = CyberOrange),
+            border = BorderStroke(1.dp, CyberOrange),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth().testTag("continue_simulation_button")
         ) {
-            Text("إغلاق التطبيق", fontWeight = FontWeight.Bold)
+            Text("المتابعة بوضع المحاكاة (Simulation Mode)", fontWeight = FontWeight.Bold)
         }
     }
 }
